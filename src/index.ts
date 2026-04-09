@@ -12,6 +12,19 @@ import {
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import {
+  createNewUser,
+  polkaWebhook,
+  reset,
+  updateUser,
+} from "./api/userApi.js";
+import {
+  createNewChirp,
+  deleteChirp,
+  getAllChirps,
+  getChirp,
+} from "./api/chirpApi.js";
+import { login, refreshAccessToken, revokeToken } from "./api/authApi.js";
 
 const migrationClient = postgres(config.db.url, { max: 1 });
 
@@ -36,52 +49,21 @@ app.get("/admin/metrics", (req: Request, res: Response) => {
 </html>`);
 });
 
-app.post("/admin/reset", (req: Request, res: Response) => {
-  config.api.fileserverHits = 0;
-  res.set("Content-Type", "text/plain; charset=utf-8");
-  res.send("OK");
-});
-
-app.post(
-  "/api/validate_chirp",
-  (req: Request, res: Response, next: NextFunction) => {
-    type parameters = {
-      body: string;
-    };
-
-    const params: parameters = req.body;
-
-    const profaneWords = ["kerfuffle", "sharbert", "fornax"];
-
-    try {
-      if (params.body.length > 140) {
-        throw new BadRequestError("Chirp is too long. Max length is 140");
-      }
-
-      const words = params.body.split(" ");
-
-      const cleanWords = words.map((word) => {
-        const lower = word.toLowerCase();
-        if (profaneWords.includes(lower)) {
-          return "****";
-        }
-        return word;
-      });
-
-      const cleaned = cleanWords.join(" ");
-
-      return res.status(200).json({
-        cleanedBody: cleaned,
-      });
-    } catch (err) {
-      next(err);
-    }
-  },
-);
+app.post("/admin/reset", reset);
+app.post("/api/login", login);
+app.post("/api/users", createNewUser);
+app.put("/api/users", updateUser);
+app.post("/api/chirps", createNewChirp);
+app.get("/api/chirps", getAllChirps);
+app.get("/api/chirps/:chirpId", getChirp);
+app.delete("/api/chirps/:chirpId", deleteChirp);
+app.post("/api/refresh", refreshAccessToken);
+app.post("/api/revoke", revokeToken);
+app.post("/api/polka/webhooks", polkaWebhook);
 
 function errorHandler(
   err: Error,
-  req: Request,
+  _: Request,
   res: Response,
   next: NextFunction,
 ) {
